@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: ai_orchestration_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: ai_orchestration
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - ai_orchestration_network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai_orchestration_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # MongoDB
+      MONGO_URI: mongodb://admin:admin123@mongodb:27017
+      MONGO_DB_NAME: ai_orchestration
+      
+      # LLM Provider (change to 'openai' to use OpenAI)
+      LLM_PROVIDER: ${LLM_PROVIDER}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      
+      # API Config
+      CORS_ORIGINS: "*"
+      DEBUG: "true"
+      
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - ai_orchestration_network
+    volumes:
+      - ./:/src  # Mount for development hot-reload
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+
+networks:
+  ai_orchestration_network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
