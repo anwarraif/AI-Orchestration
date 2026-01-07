@@ -48,12 +48,13 @@ class TestRunner:
     async def test_streaming(self, client):
         print("[TEST 1] Streaming Events")
         print("-"*80)
-        
-        events = {"agent": 0, "tool_call_started": 0, "tool_call_completed": 0, 
+
+        events = {"agent": 0, "tool_call_started": 0, "tool_call_completed": 0,
                   "token": 0, "done": 0}
-        
-        payload = {"sessionId": "test1", "userId": "u1", "prompt": "Hello"}
-        
+
+        # Use prompt that triggers DB tool calling
+        payload = {"sessionId": "test1", "userId": "u1", "prompt": "Retrieve my conversation history"}
+
         async with client.stream(
             "POST", f"{API_BASE}/v1/chat/stream",
             headers={**AUTH, "Content-Type": "application/json"},
@@ -65,7 +66,7 @@ class TestRunner:
                     event_type = line.split(":", 1)[1].strip()
                     if event_type in events:
                         events[event_type] += 1
-        
+
         all_present = all(v > 0 for v in events.values())
         self.log("Streaming: All event types present", all_present,
                 f"Events: {events}")
